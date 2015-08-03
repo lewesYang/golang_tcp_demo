@@ -4,12 +4,13 @@ import (
 	"container/list"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 )
 
 const (
 	wc         = "welcome to commd chat room"
-	notice     = "如需私聊请@用户名+发送内容:"
+	notice     = "如需私聊请send用户名#发送内容:"
 	ip         = "127.0.0.1"
 	onlineUser = "在线用户:"
 	port       = 5418
@@ -68,8 +69,7 @@ func handle(conn net.Conn) {
 func onlineNotice(conn net.Conn) {
 	sendTitle(conn)
 	for e := clients.Front(); e != nil; e = e.Next() {
-		conn.Write([]byte((e.Value.(*client).name)))
-		conn.Write([]byte(("\r")))
+		conn.Write([]byte(("[" + e.Value.(*client).name + "]")))
 	}
 
 }
@@ -83,11 +83,22 @@ func sendTitle(conn net.Conn) {
 func broadcast(data []byte, conn net.Conn) {
 	for e := clients.Front(); e != nil; e = e.Next() {
 		name := e.Value.(*client).name
-		if name == conn.RemoteAddr().String() {
+		form := conn.RemoteAddr().String()
+		if name == form {
 			continue
 		}
-		byte_name := []byte("[" + name + "]  ")
-		data = append(byte_name, data...)
-		e.Value.(*client).conn.Write(data)
+		if strings.Contains(string(data), "#") { //私聊
+			datas := strings.Split(string(data), "#")
+			fmt.Println(datas[0])
+			if name == datas[0] {
+				byte_name := []byte("[" + form + "]  ")
+				send_data := append(byte_name, []byte(datas[1])...)
+				e.Value.(*client).conn.Write(send_data)
+			}
+		} else {
+			byte_name := []byte("[" + form + "]  ")
+			send_data := append(byte_name, data...)
+			e.Value.(*client).conn.Write(send_data)
+		}
 	}
 }
